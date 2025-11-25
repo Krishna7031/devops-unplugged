@@ -1,13 +1,13 @@
 # DevOps Unplugged Notes & Code Repository
 
-Welcome to the **DevOps Unplugged** repository—your all-in-one extended guide to the [DevOps Unplugged LinkedIn newsletter](https://www.linkedin.com/build-relation/newsletter-follow?entityUrn=7396874311074107393)!  
+Welcome to the **DevOps Unplugged** repository, your all-in-one extended guide to the [DevOps Unplugged LinkedIn newsletter](https://www.linkedin.com/build-relation/newsletter-follow?entityUrn=7396874311074107393)!  
 Here you'll find comprehensive notes, hands-on Linux and shell scripting code, and practical examples designed to empower your DevOps journey.
 
 ---
 
 ## 🚀 What You'll Find
 
-- **Well-structured, beginner-to-advanced guides:** Master Linux, shell scripting, automation, and more.
+- **Well-structured, beginner-to-advanced guides:** Master Linux, shell scripting, docker, kubernetes, CI/CD, automation, and more.
 - **Executable, commented code snippets:** Each section includes clear explanations for easy understanding and self-study.
 - **Direct extensions of newsletter topics:** Go beyond the newsletter with practical labs and reference sheets.
 - **Continuous updates:** Synced with new newsletter issues and community contributions.
