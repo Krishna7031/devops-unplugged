@@ -35,26 +35,6 @@ Get in-depth DevOps insights directly to your inbox—subscribe to the official 
 
 [**Subscribe on LinkedIn**](https://www.linkedin.com/build-relation/newsletter-follow?entityUrn=7396874311074107393)
 
-<!-- Custom LinkedIn subscribe button for README/Markdown viewers supporting HTML -->
-<style>
-  .libutton {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 7px;
-    text-align: center;
-    outline: none;
-    text-decoration: none !important;
-    color: #ffffff !important;
-    width: 200px;
-    height: 32px;
-    border-radius: 16px;
-    background-color: #0A66C2;
-    font-family: "SF Pro Text", Helvetica, sans-serif;
-  }
-</style>
-<a class="libutton" href="https://www.linkedin.com/build-relation/newsletter-follow?entityUrn=7396874311074107393" target="_blank">Subscribe on LinkedIn</a>
-
 ---
 
 ## ⚡ How to Use
