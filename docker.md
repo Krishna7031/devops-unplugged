@@ -4,10 +4,11 @@ Complete Docker code examples and resources from the "DevOps Unplugged" newslett
 
 ## 📚 Content Coverage
 
-This section covers **Week 1, 2, & 3** of the Docker series from the newsletter:
+This section covers **Week 1, 2, 3, & 4** of the Docker series from the newsletter:
 - **Week 1**: Docker fundamentals, what it is, and why it matters
 - **Week 2**: Writing Dockerfiles and production-grade best practices
 - **Week 3**: Docker Compose and multi-container applications
+- **Week 4**: Docker registries, image tagging, and production deployment
 
 For complete context and deep explanations, refer to the full articles on the newsletter.
 
@@ -18,21 +19,17 @@ For complete context and deep explanations, refer to the full articles on the ne
 - [Prerequisites](#prerequisites)
 - [Docker Basics](#docker-basics)
 - [Dockerfile Examples](#dockerfile-examples)
-  - [Simple Python Application](#simple-python-application)
-  - [Node.js Application with Multi-Stage Build](#nodejs-application-with-multi-stage-build)
-  - [Production-Ready Best Practices](#production-ready-best-practices)
 - [Docker Compose](#docker-compose)
-  - [Basic Multi-Container Setup](#basic-multi-container-setup)
-  - [Web Application with Database](#web-application-with-database)
-  - [Multi-Stage with Networking](#multi-stage-with-networking)
-  - [Production-Grade Configuration](#production-grade-configuration)
-- [Volumes & Storage](#volumes--storage)
-- [Networking](#networking)
-- [Environment Variables & Secrets](#environment-variables--secrets)
+- [Docker Registries & Tagging](#docker-registries--tagging)
+- [Image Tagging Strategies](#image-tagging-strategies)
+- [Pushing & Pulling Images](#pushing--pulling-images)
+- [CI/CD Integration](#cicd-integration)
+- [Deployment Strategies](#deployment-strategies)
 - [Quick Start](#quick-start)
 - [Common Commands](#common-commands)
 - [Best Practices Checklist](#best-practices-checklist)
 - [Directory Structure](#directory-structure)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -72,14 +69,15 @@ Docker is a containerization platform that packages your application with all de
 | **Volume** | Persistent storage for containers |
 | **Network** | Communication layer between containers |
 
-### Image vs Container vs Compose
+### The Complete Docker Lifecycle
 
 ```
-Dockerfile → docker build → Image → docker run → Container
-(Recipe)    (Compile)      (Template) (Execute)  (Running instance)
+Code → Dockerfile → docker build → Image → docker tag → docker push → Registry
+          ↓
+      Local Dev      Local Dev     Local Dev   Registry   Registry
 
-docker-compose.yml → docker-compose up → Multiple Containers + Networking + Volumes
-(Application spec)  (Orchestrate)       (Complete system)
+Registry → docker pull → docker run → Container → Application
+           Production   Production   Production  Running
 ```
 
 ---
@@ -87,26 +85,6 @@ docker-compose.yml → docker-compose up → Multiple Containers + Networking + 
 ## Dockerfile Examples
 
 ### Simple Python Application
-
-**Project Structure:**
-```
-python-app/
-├── app.py
-├── requirements.txt
-└── Dockerfile
-```
-
-**app.py:**
-```python
-print("Hello from Docker!")
-print("Application is running...")
-```
-
-**requirements.txt:**
-```
-Flask==2.3.0
-requests==2.31.0
-```
 
 **Dockerfile:**
 ```dockerfile
@@ -126,57 +104,9 @@ docker run my-python-app:1.0
 
 ---
 
-### Node.js Application with Multi-Stage Build
+### Node.js with Multi-Stage Build
 
-**Project Structure:**
-```
-nodejs-app/
-├── package.json
-├── index.js
-├── .dockerignore
-└── Dockerfile
-```
-
-**package.json:**
-```json
-{
-  "name": "nodejs-app",
-  "version": "1.0.0",
-  "scripts": {
-    "start": "node index.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2"
-  }
-}
-```
-
-**index.js:**
-```javascript
-const express = require('express');
-const app = express();
-
-app.get('/', (req, res) => {
-  res.send('Hello from Docker!');
-});
-
-app.listen(3000, () => {
-  console.log('Server running on port 3000');
-});
-```
-
-**.dockerignore:**
-```
-node_modules
-.git
-.gitignore
-npm-debug.log
-README.md
-.DS_Store
-.env
-```
-
-**Dockerfile (Multi-Stage):**
+**Dockerfile:**
 ```dockerfile
 # Stage 1: Build
 FROM node:20-alpine AS builder
@@ -196,7 +126,6 @@ COPY --chown=appuser:appgroup . .
 
 USER appuser
 EXPOSE 3000
-
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "index.js"]
 ```
@@ -209,15 +138,11 @@ docker run -p 3000:3000 my-nodejs-app:1.0
 
 ---
 
-### Production-Ready Best Practices
-
-**Complete Dockerfile with all best practices:**
+### Production-Ready Dockerfile
 
 ```dockerfile
-# Use specific base image version (not 'latest')
 FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
 # Install system dependencies
@@ -228,89 +153,30 @@ RUN apt-get update && apt-get install -y \
 # Create non-root user
 RUN useradd -m -u 1000 appuser
 
-# Copy only requirements first (for better caching)
+# Copy and install dependencies
 COPY --chown=appuser:appuser requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY --chown=appuser:appuser . .
 
-# Switch to non-root user
 USER appuser
 
-# Expose port (for documentation)
 EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Use tini as init process for proper signal handling
 ENTRYPOINT ["tini", "--"]
-
-# Start application
 CMD ["python", "-u", "app.py"]
 ```
-
-**Key Best Practices:**
-
-1. ✅ **Specific versions**: `python:3.11-slim` (not `latest`)
-2. ✅ **Non-root user**: Created `appuser` for security
-3. ✅ **Minimal layers**: Chained RUN commands with `&&`
-4. ✅ **Layer caching**: Dependencies before code
-5. ✅ **Clean up**: Removed apt cache
-6. ✅ **Health checks**: Added HEALTHCHECK instruction
-7. ✅ **Signal handling**: Using tini as init process
 
 ---
 
 ## Docker Compose
 
-### What is Docker Compose?
-
-Docker Compose lets you define multi-container applications in a YAML file. One command brings your entire application stack to life.
-
 ### Basic Multi-Container Setup
-
-**docker-compose.yml:**
-```yaml
-version: '3.8'
-
-services:
-  web:
-    image: node:20-alpine
-    ports:
-      - "3000:3000"
-    command: npm start
-
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_PASSWORD: secret
-
-volumes:
-  db_data:
-```
-
-**Run:**
-```bash
-docker-compose up -d
-```
-
----
-
-### Web Application with Database
-
-**Project Structure:**
-```
-app-stack/
-├── docker-compose.yml
-├── web/
-│   ├── Dockerfile
-│   ├── package.json
-│   └── index.js
-└── .env
-```
 
 **docker-compose.yml:**
 ```yaml
@@ -323,14 +189,12 @@ services:
       - "3000:3000"
     environment:
       DATABASE_URL: postgres://appuser:apppass@db:5432/myapp
-      NODE_ENV: development
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - ./web:/app
       - /app/node_modules
-    command: npm run dev
 
   db:
     image: postgres:16
@@ -348,23 +212,20 @@ services:
 
 volumes:
   db_data:
-
-networks:
-  default:
-    name: app-network
 ```
 
 **Run:**
 ```bash
 docker-compose up -d
-docker-compose logs -f web
+docker-compose logs -f
+docker-compose down
 ```
 
 ---
 
-### Multi-Stage with Networking
+### Advanced Multi-Stage Setup
 
-**docker-compose.yml with Frontend, Backend, Database, Cache:**
+**docker-compose.yml:**
 ```yaml
 version: '3.8'
 
@@ -384,571 +245,580 @@ services:
   backend:
     build: ./api
     environment:
-      DATABASE_URL: postgres://appuser:apppass@db:5432/app
+      DATABASE_URL: postgres://db:5432/app
       REDIS_URL: redis://cache:6379
-      NODE_ENV: production
     depends_on:
       db:
         condition: service_healthy
-      cache:
-        condition: service_started
     networks:
       - frontend
       - backend
-    restart: unless-stopped
-
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: appuser
-      POSTGRES_PASSWORD: apppass
-      POSTGRES_DB: app
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    networks:
-      - backend
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U appuser"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  cache:
-    image: redis:7-alpine
-    networks:
-      - backend
-    restart: unless-stopped
-
-volumes:
-  db_data:
-
-networks:
-  frontend:
-    driver: bridge
-  backend:
-    driver: bridge
-```
-
-**Run with scaling:**
-```bash
-docker-compose up -d
-docker-compose up -d --scale backend=3
-```
-
----
-
-### Production-Grade Configuration
-
-**Base configuration (docker-compose.yml):**
-```yaml
-version: '3.8'
-
-services:
-  app:
-    image: myapp:1.0.0
     deploy:
       resources:
         limits:
           cpus: '1'
           memory: 512M
-        reservations:
-          cpus: '0.5'
-          memory: 256M
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    restart: unless-stopped
-    environment:
-      NODE_ENV: production
-    depends_on:
-      db:
-        condition: service_healthy
 
   db:
     image: postgres:16
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 1G
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_PASSWORD: secret
     volumes:
       - db_data:/var/lib/postgresql/data
+    networks:
+      - backend
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
 
+  cache:
+    image: redis:7-alpine
+    networks:
+      - backend
+    restart: unless-stopped
+
 volumes:
   db_data:
+
+networks:
+  frontend:
+  backend:
 ```
 
-**.env file:**
-```
-DB_USER=appuser
-DB_PASSWORD=secure_password_here
-DB_NAME=production_db
+---
+
+## Docker Registries & Tagging
+
+### What is a Docker Registry?
+
+A Docker registry is a server that stores and serves Docker images. It's where you push images for distribution and where production servers pull images for deployment.
+
+### Registry Types
+
+| Registry | Use Case | Examples |
+|----------|----------|----------|
+| **Public** | Open-source, shareable projects | Docker Hub, Quay.io, GitHub Container Registry |
+| **Private** | Proprietary code, company projects | AWS ECR, Google Artifact Registry, Azure ACR |
+| **Self-Hosted** | Complete control, on-premise | Docker Distribution, Harbor |
+
+---
+
+## Image Tagging Strategies
+
+### ❌ BAD: Using `latest`
+
+```bash
+# DON'T DO THIS IN PRODUCTION
+docker build -t myapp:latest .
+docker push myapp:latest
+docker run myapp:latest
 ```
 
-**docker-compose.prod.yml (overrides):**
+**Problem:** `latest` is a moving target. You can't rollback to a specific version.
+
+### ✅ GOOD: Semantic Versioning
+
+**Semantic Version Format:** `MAJOR.MINOR.PATCH`
+
+```bash
+# Build with specific version
+docker build -t myapp:1.2.3 .
+
+# Tag with multiple versions for flexibility
+docker tag myapp:1.2.3 myapp:1.2
+docker tag myapp:1.2.3 myapp:1
+
+# Tag for registry
+docker tag myapp:1.2.3 registry.example.com/myapp:1.2.3
+docker tag myapp:1.2.3 registry.example.com/myapp:1.2
+docker tag myapp:1.2.3 registry.example.com/myapp:1
+```
+
+**Deployment Strategy:**
+- `myapp:1.2.3` → Immutable, specific version
+- `myapp:1.2` → Latest patch version
+- `myapp:1` → Latest feature version (can include patches)
+- `myapp:latest` → Development only (don't use in production)
+
+### Advanced Tagging Examples
+
+```bash
+# Environment-specific tags
+docker tag myapp:1.0.0 myapp:1.0.0-prod
+docker tag myapp:1.0.0 myapp:1.0.0-staging
+
+# Commit hash (unique code identifier)
+docker tag myapp:1.0.0 myapp:1.0.0-abc123def
+
+# Build metadata
+docker tag myapp:1.0.0 myapp:1.0.0-build-42
+
+# Date-based
+docker tag myapp:1.0.0 myapp:1.0.0-2024-12-24
+
+# For Docker Hub: username/repository:tag
+docker tag myapp:1.0.0 krishna/myapp:1.0.0
+```
+
+---
+
+## Pushing & Pulling Images
+
+### Authenticate with Registry
+
+```bash
+# Docker Hub
+docker login
+
+# Private registry
+docker login registry.example.com
+
+# Using credentials (CI/CD)
+docker login -u $USERNAME -p $PASSWORD registry.example.com
+
+# Using access token (more secure)
+docker login -u $USERNAME -p $TOKEN registry.example.com
+```
+
+Credentials are stored in `~/.docker/config.json`
+
+### Tag Image for Registry
+
+```bash
+# For Docker Hub
+docker tag myapp:1.0.0 krishna/myapp:1.0.0
+
+# For private registry
+docker tag myapp:1.0.0 registry.example.com/team/myapp:1.0.0
+```
+
+### Push Image
+
+```bash
+# To Docker Hub
+docker push krishna/myapp:1.0.0
+
+# To private registry
+docker push registry.example.com/team/myapp:1.0.0
+
+# Push all tags
+docker push registry.example.com/team/myapp
+```
+
+### Pull Image
+
+```bash
+# From Docker Hub
+docker pull krishna/myapp:1.0.0
+
+# From private registry
+docker pull registry.example.com/team/myapp:1.0.0
+
+# Run pulled image
+docker run registry.example.com/team/myapp:1.0.0
+```
+
+### Docker Compose with Registry
+
 ```yaml
 version: '3.8'
 
 services:
   app:
-    image: myapp:1.0.0
+    image: registry.example.com/team/myapp:1.0.0
     ports:
       - "3000:3000"
-    environment:
-      NODE_ENV: production
-      LOG_LEVEL: warn
-```
-
-**Run production:**
-```bash
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
 ---
 
-## Volumes & Storage
+## CI/CD Integration
 
-### Three Types of Mounts
+### Complete Pipeline Workflow
 
-#### 1. Named Volumes (Recommended for Databases)
-
-```yaml
-services:
-  db:
-    image: postgres:16
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
+```
+1. Push code to GitHub/GitLab
+        ↓
+2. CI/CD detects change and builds image
+        ↓
+3. Run tests on built image
+        ↓
+4. Push image to registry (if tests pass)
+        ↓
+5. Deploy to production (pull and run)
 ```
 
-**Commands:**
-```bash
-docker volume ls
-docker volume inspect postgres_data
-docker-compose down -v  # Remove volume
+### GitLab CI/CD Pipeline Example
+
+**.gitlab-ci.yml:**
+```yaml
+stages:
+  - build
+  - test
+  - push
+  - deploy
+
+variables:
+  DOCKER_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+
+build:
+  stage: build
+  image: docker:25
+  services:
+    - docker:25-dind
+  script:
+    - docker build -t $DOCKER_IMAGE .
+    - docker tag $DOCKER_IMAGE $CI_REGISTRY_IMAGE:latest
+
+test:
+  stage: test
+  image: $DOCKER_IMAGE
+  script:
+    - npm test
+    - npm run lint
+    - npm run security-check
+
+push:
+  stage: push
+  image: docker:25
+  services:
+    - docker:25-dind
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker push $DOCKER_IMAGE
+    - docker push $CI_REGISTRY_IMAGE:latest
+  only:
+    - main
+
+deploy:
+  stage: deploy
+  image: alpine
+  script:
+    - apk add --no-cache openssh-client
+    - ssh -i $DEPLOY_KEY -o StrictHostKeyChecking=no ubuntu@prod.example.com
+      "docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD &&
+       docker pull $DOCKER_IMAGE &&
+       docker-compose up -d"
+  only:
+    - main
 ```
 
-#### 2. Bind Mounts (For Development)
-
-**Short syntax:**
-```yaml
-services:
-  web:
-    image: node:20-alpine
-    volumes:
-      - ./app:/app              # Read-write
-      - ./config:/etc/config:ro # Read-only
+**Environment Variables (GitLab CI/CD Settings):**
+```
+CI_REGISTRY_USER = gitlab-ci-token
+CI_REGISTRY_PASSWORD = (automatically set)
+CI_REGISTRY = registry.gitlab.com
+DOCKER_USERNAME = your_docker_hub_user
+DOCKER_PASSWORD = your_docker_hub_token
+DEPLOY_KEY = (SSH private key for production server)
 ```
 
-**Long syntax:**
+### GitHub Actions Pipeline Example
+
+**.github/workflows/docker.yml:**
 ```yaml
-services:
-  web:
-    image: node:20-alpine
-    volumes:
-      - type: bind
-        source: ./app
-        target: /app
-        read_only: false
-```
+name: Docker Build & Deploy
 
-#### 3. Tmpfs (Temporary, In-Memory)
+on:
+  push:
+    branches: [ main ]
 
-```yaml
-services:
-  cache:
-    image: redis:7-alpine
-    tmpfs:
-      - /tmp
-```
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
-### Mount Options
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
-```yaml
-volumes:
-  # Multiple mounts
-  - ./src:/app
-  - ./cache:/tmp/cache
-  - ./config:/etc/configs
-  
-  # Read-only
-  - ./config:/etc/config:ro
-  
-  # Named volume
-  - my_volume:/data
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 ```
 
 ---
 
-## Networking
+## Deployment Strategies
 
-### Automatic Discovery
+### Rolling Deployment
 
-Services discover each other by name automatically:
+Update containers one at a time without downtime.
 
-```yaml
-services:
-  web:
-    environment:
-      DATABASE_URL: postgres://db:5432/app  # 'db' resolves automatically
-      REDIS_URL: redis://cache:6379
+**Process:**
+1. Start new container with new image
+2. Wait for health check to pass
+3. Remove old container
+4. Repeat for each container
 
-  db:
-    image: postgres:16
+**Pros:** Zero downtime, easy to monitor
+**Cons:** Temporary 2x resource usage
 
-  cache:
-    image: redis:7-alpine
-```
-
-### Custom Networks
-
-```yaml
-version: '3.8'
-
-services:
-  web:
-    image: node:20-alpine
-    networks:
-      - frontend
-    ports:
-      - "3000:3000"
-
-  db:
-    image: postgres:16
-    networks:
-      - backend
-
-  cache:
-    image: redis:7-alpine
-    networks:
-      - backend
-
-networks:
-  frontend:
-    driver: bridge
-  backend:
-    driver: bridge
-```
-
-**Network types:**
-- `bridge`: Isolated network (default)
-- `host`: Use host's network directly
-- `overlay`: For Docker Swarm
-
----
-
-## Environment Variables & Secrets
-
-### Method 1: Inline Environment Variables
-
-```yaml
-services:
-  web:
-    image: node:20-alpine
-    environment:
-      NODE_ENV: production
-      LOG_LEVEL: info
-      DATABASE_HOST: db
-```
-
-### Method 2: .env File
-
-**.env:**
-```
-DB_USER=appuser
-DB_PASSWORD=secure_pass
-REDIS_HOST=cache
-```
-
-**docker-compose.yml:**
-```yaml
-services:
-  web:
-    image: node:20-alpine
-    env_file: .env
-```
-
-### Method 3: Multiple Environment Files
-
-```yaml
-services:
-  web:
-    image: node:20-alpine
-    env_file:
-      - .env
-      - .env.local
-```
-
-### Method 4: Docker Secrets (Production)
-
-**docker-compose.yml:**
-```yaml
-version: '3.8'
-
-services:
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
-    secrets:
-      - db_password
-
-secrets:
-  db_password:
-    file: ./secrets/db_password.txt
-```
-
-**Create secret file:**
+**Implementation (Docker Compose):**
 ```bash
-mkdir -p secrets
-echo "your_secure_password" > secrets/db_password.txt
-chmod 600 secrets/db_password.txt
+docker-compose up -d --no-deps --build web
+```
+
+### Blue-Green Deployment
+
+Two complete environments, switch between them.
+
+**Process:**
+1. Blue (current) is live
+2. Deploy to Green
+3. Test Green thoroughly
+4. Switch traffic to Green
+5. Blue ready for rollback
+
+**Pros:** Instant switch, instant rollback
+**Cons:** 2x resources
+
+**Implementation:**
+```bash
+# Deploy to green
+docker-compose -f docker-compose.green.yml up -d
+
+# Test green
+curl http://green.example.com/health
+
+# Switch traffic (DNS, load balancer, or proxy)
+# Switch back if needed
+docker-compose -f docker-compose.blue.yml up -d
+```
+
+### Canary Deployment
+
+Route small percentage of traffic to new version.
+
+**Process:**
+1. Deploy new version
+2. Route 5% traffic to new version
+3. Monitor for issues
+4. Gradually increase: 10%, 25%, 50%, 100%
+
+**Pros:** Early issue detection, safe rollback
+**Cons:** Slow rollout
+
+**Implementation (with nginx):**
+```nginx
+upstream app_v1 {
+    server old_container:3000 weight=95;
+}
+
+upstream app_v2 {
+    server new_container:3000 weight=5;
+}
+
+server {
+    listen 80;
+    location / {
+        proxy_pass http://app_v1;
+    }
+}
 ```
 
 ---
 
 ## Quick Start
 
-### 1. Clone Examples
+### 1. Build Locally
 
 ```bash
-git clone <repository-url>
-cd devops-unplugged
+docker build -t myapp:1.0.0 .
+docker run myapp:1.0.0
 ```
 
-### 2. Create a Simple Compose File
+### 2. Tag for Registry
 
 ```bash
-mkdir my-app && cd my-app
-cat > docker-compose.yml << 'EOF'
-version: '3.8'
-
-services:
-  web:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_PASSWORD: secret
-EOF
+docker tag myapp:1.0.0 registry.example.com/myapp:1.0.0
 ```
 
-### 3. Start Services
+### 3. Authenticate
 
 ```bash
-docker-compose up -d
+docker login registry.example.com
 ```
 
-### 4. View Status
+### 4. Push to Registry
 
 ```bash
-docker-compose ps
-docker-compose logs -f
+docker push registry.example.com/myapp:1.0.0
 ```
 
-### 5. Stop Services
+### 5. Pull on Production
 
 ```bash
-docker-compose down
+docker login registry.example.com
+docker pull registry.example.com/myapp:1.0.0
+docker run registry.example.com/myapp:1.0.0
 ```
 
 ---
 
 ## Common Commands
 
-### Essential Commands
+### Image Commands
 
 ```bash
-# Start services in background
+# List images
+docker images
+
+# Tag image
+docker tag source:tag target:tag
+
+# Remove image
+docker rmi image-name:tag
+
+# View image history
+docker history image-name:tag
+
+# Inspect image
+docker inspect image-name:tag
+```
+
+### Registry Commands
+
+```bash
+# Login to registry
+docker login [registry-url]
+
+# Logout from registry
+docker logout [registry-url]
+
+# Push image
+docker push registry/image:tag
+
+# Pull image
+docker pull registry/image:tag
+
+# Search Docker Hub
+docker search image-name
+```
+
+### Compose Commands
+
+```bash
+# Start services
 docker-compose up -d
 
-# Start services in foreground (see logs)
-docker-compose up
-
-# Rebuild images before starting
-docker-compose up -d --build
-
-# Stop services (containers saved)
-docker-compose stop
-
-# Start stopped services
-docker-compose start
-
-# Stop and remove containers, networks (volumes persist)
+# Stop services
 docker-compose down
 
-# Stop and remove everything including volumes
-docker-compose down -v
+# View logs
+docker-compose logs -f [service]
 
-# Restart services
-docker-compose restart
-```
-
-### Viewing Information
-
-```bash
-# List running services
+# List services
 docker-compose ps
 
-# View logs
-docker-compose logs
+# Execute command in service
+docker-compose exec [service] command
 
-# Follow logs (real-time)
-docker-compose logs -f
+# Rebuild images
+docker-compose up -d --build
 
-# View logs for specific service
-docker-compose logs -f web
-
-# Last 50 lines
-docker-compose logs --tail=50 web
-
-# View specific time period
-docker-compose logs --since 10m web
-```
-
-### Container Operations
-
-```bash
-# Execute command in running container
-docker-compose exec db psql -U postgres
-
-# Interactive bash shell
-docker-compose exec web bash
-
-# Run one-off command
-docker-compose run web npm test
-
-# View running processes
-docker-compose top web
-```
-
-### Building & Images
-
-```bash
-# Build services
-docker-compose build
-
-# Build specific service
-docker-compose build web
-
-# Build without cache
-docker-compose build --no-cache
-
-# Build with build arguments
-docker-compose build --build-arg ENV=production
-```
-
-### Scaling & Management
-
-```bash
-# Scale a service
+# Scale service
 docker-compose up -d --scale web=3
-
-# Remove stopped containers
-docker-compose rm
-
-# Remove unused images
-docker-compose rmi
-
-# Remove unused networks/volumes
-docker-compose prune
-
-# Validate compose file
-docker-compose config
-
-# Show image layers
-docker-compose images
 ```
 
-### Debugging
+### Debugging Commands
 
 ```bash
-# Inspect service configuration
-docker-compose config
+# Check image layer details
+docker history image-name:tag
 
-# Show environment variables
-docker-compose exec web env
+# Check image configuration
+docker inspect image-name:tag
 
-# Check network connectivity
-docker-compose exec web ping db
+# Check credentials stored locally
+cat ~/.docker/config.json
 
-# View disk usage
-docker system df
+# Check registry connectivity
+docker pull registry/test-image
 
-# View resource usage
-docker stats
+# Validate Docker files
+docker build --dry-run -t test .
 ```
 
 ---
 
 ## Best Practices Checklist
 
-### Dockerfile Best Practices
-- [ ] Use specific version, not `latest`
-- [ ] Use lightweight variants (`-slim`, `-alpine`)
-- [ ] Order instructions from least to most frequently changed
-- [ ] Copy dependencies before code
-- [ ] Combine RUN commands with `&&`
-- [ ] Create and use non-root user
-- [ ] Never bake secrets into image
-- [ ] Remove package manager cache
-- [ ] Use multi-stage builds when applicable
-- [ ] Include health checks
-- [ ] Handle SIGTERM for graceful shutdown
+### Image Tagging
+- [ ] Never use `latest` in production
+- [ ] Use semantic versioning (MAJOR.MINOR.PATCH)
+- [ ] Use immutable version tags
+- [ ] Tag with registry URL for clarity
+- [ ] Document version increments
 
-### Docker Compose Best Practices
-- [ ] Use specific image versions
-- [ ] Define health checks for services
-- [ ] Use `depends_on` with health conditions
-- [ ] Mount volumes for persistent data
-- [ ] Use named volumes for databases
-- [ ] Use bind mounts for development only
-- [ ] Use custom networks for isolation
-- [ ] Set resource limits (CPU, memory)
-- [ ] Use `.env` files for configuration
-- [ ] Use Docker Secrets for production
-- [ ] Add restart policies (`unless-stopped`)
-- [ ] Organize services logically
-- [ ] Use `.dockerignore` to exclude files
-- [ ] Use override files for environments
-- [ ] Document all services
+### Registry Management
+- [ ] Use private registries for proprietary code
+- [ ] Implement image scanning for vulnerabilities
+- [ ] Set up image retention policies
+- [ ] Use access tokens instead of passwords
+- [ ] Audit who can push/pull images
 
-### Production Checklist
-- [ ] Resource limits set (CPU, memory)
-- [ ] Health checks configured
-- [ ] Restart policies set to `unless-stopped`
-- [ ] Logging to stdout/stderr
-- [ ] Environment-specific override files
-- [ ] Secrets stored securely (not in code)
-- [ ] Networks configured for isolation
-- [ ] Volumes for persistent data
-- [ ] Non-root users in images
-- [ ] Monitoring/observability planned
+### Deployment
+- [ ] Build once, deploy everywhere
+- [ ] Never build images on production servers
+- [ ] Use health checks during deployment
+- [ ] Implement rollback strategy
+- [ ] Use immutable infrastructure (don't modify running containers)
+- [ ] Tag production deployments with specific versions
+- [ ] Document deployment procedures
+
+### Security
+- [ ] Use private registries for sensitive code
+- [ ] Rotate access tokens regularly
+- [ ] Implement image signing
+- [ ] Scan images for vulnerabilities
+- [ ] Use minimal base images (alpine, distroless)
+- [ ] Run as non-root user
+- [ ] Use secrets management (not environment variables for sensitive data)
+
+### CI/CD Pipeline
+- [ ] Automate build process
+- [ ] Run tests in container before push
+- [ ] Push only after successful tests
+- [ ] Tag images with commit hash
+- [ ] Maintain build artifacts for auditing
+- [ ] Implement approval gates before production deployment
 
 ---
 
 ## Directory Structure
-
-Recommended repository structure for Docker projects:
 
 ```
 devops-unplugged/
@@ -963,111 +833,85 @@ devops-unplugged/
 ├── 02-nodejs/
 │   ├── Dockerfile
 │   ├── package.json
-│   ├── index.js
-│   └── .dockerignore
+│   └── index.js
 │
-├── 03-multi-stage/
-│   ├── Dockerfile
-│   ├── src/
-│   └── .dockerignore
-│
-├── 04-production-ready/
+├── 03-production-dockerfile/
 │   ├── Dockerfile
 │   ├── app/
 │   └── .dockerignore
 │
-├── 05-compose-basic/
+├── 04-compose-basic/
 │   ├── docker-compose.yml
-│   ├── app/
-│   └── .env
+│   └── app/
 │
-├── 06-compose-webdb/
+├── 05-compose-advanced/
 │   ├── docker-compose.yml
-│   ├── docker-compose.override.yml
-│   ├── web/
-│   ├── db/
-│   ├── .env
-│   └── .env.example
-│
-├── 07-compose-production/
-│   ├── docker-compose.yml
-│   ├── docker-compose.prod.yml
-│   ├── docker-compose.dev.yml
+│   ├── frontend/
 │   ├── backend/
-│   ├── database/
-│   ├── secrets/
-│   └── .env.production
+│   └── database/
 │
-└── scripts/
-    ├── build.sh
-    ├── up.sh
-    ├── down.sh
-    └── logs.sh
+├── 06-cicd-gitlab/
+│   ├── .gitlab-ci.yml
+│   ├── Dockerfile
+│   └── app/
+│
+├── 07-cicd-github/
+│   ├── .github/workflows/docker.yml
+│   ├── Dockerfile
+│   └── app/
+│
+├── 08-deployment/
+│   ├── docker-compose.prod.yml
+│   ├── nginx.conf
+│   └── scripts/
+│
+└── docs/
+    ├── VERSIONING.md
+    ├── DEPLOYMENT.md
+    └── TROUBLESHOOTING.md
 ```
-
----
-
-## Layer Caching Principle
-
-**Order matters for build speed:**
-
-```dockerfile
-# ❌ BAD: Invalidates cache frequently
-FROM python:3.11-slim
-COPY . .                          # Code changes often
-RUN pip install -r requirements.txt  # Rebuilt every time
-
-# ✅ GOOD: Leverages cache effectively
-FROM python:3.11-slim
-COPY requirements.txt .           # Dependencies change rarely
-RUN pip install -r requirements.txt  # Cached most of the time
-COPY . .                          # Code changes often
-```
-
-**Result:**
-- Bad approach: 2+ minute rebuild when code changes
-- Good approach: 5-10 second rebuild when code changes
 
 ---
 
 ## Troubleshooting
 
-### Image Problems
+### Image Issues
 
 | Problem | Solution |
 |---------|----------|
-| Image too large | Use multi-stage builds, remove dependencies, use `-alpine` variant |
-| Slow builds | Check layer caching, avoid unnecessary RUN commands |
-| Permission denied | Check USER instruction, verify file ownership with chown |
-| Dependencies missing | Verify all RUN install commands, check .dockerignore |
+| `authentication required` when pushing | Run `docker login` with correct credentials |
+| `image not found` when pulling | Check image name and tag, verify access to registry |
+| `permission denied` pushing to registry | Verify credentials, check repository access |
+| Image too large | Use multi-stage builds, remove cache, use slim base images |
 
-### Container Problems
-
-| Problem | Solution |
-|---------|----------|
-| Container crashes | Check logs: `docker logs container-name` |
-| Can't connect to service | Verify DNS names, check network connectivity |
-| Port already in use | Change port mapping or stop conflicting container |
-| Data not persisting | Use named volumes, not bind mounts for databases |
-
-### Compose Problems
+### Registry Issues
 
 | Problem | Solution |
 |---------|----------|
-| Services can't communicate | Check network, verify service names, check DNS |
-| Port conflicts | Check `docker-compose ps`, verify port mappings |
-| Permissions issues | Check volume mounts, verify user permissions |
-| Environment variables not set | Verify .env file, check env_file path, validate YAML |
+| Can't connect to registry | Check network connectivity, verify registry URL |
+| Credentials not working | Regenerate token, check `~/.docker/config.json` |
+| Rate limit exceeded | Use private registry or wait, upgrade Docker Hub plan |
+| Image push timeout | Split into smaller images, check network speed |
+
+### Deployment Issues
+
+| Problem | Solution |
+|---------|----------|
+| Container crashes after pull | Check logs, verify health checks, test locally first |
+| Can't pull image in CI/CD | Verify registry credentials in CI/CD environment variables |
+| Old version still running | Verify deployment updated image tag correctly |
+| Rollback failed | Keep multiple version tags, maintain version history |
 
 ---
 
 ## Resources
 
 - [Docker Official Documentation](https://docs.docker.com/)
-- [Dockerfile Reference](https://docs.docker.com/engine/reference/builder/)
-- [Docker Compose Reference](https://docs.docker.com/compose/compose-file/)
+- [Docker Registry Documentation](https://docs.docker.com/registry/)
+- [Docker Hub](https://hub.docker.com/)
+- [Semantic Versioning](https://semver.org/)
 - [Docker Best Practices](https://docs.docker.com/develop/dev-best-practices/)
-- [Docker Hub Official Images](https://hub.docker.com/search?type=image&image_filter=official)
+- [Container Security](https://docs.docker.com/engine/security/)
 
 ---
 
@@ -1077,7 +921,7 @@ Read the full explanations in the DevOps Unplugged newsletter:
 - **Week 1**: Docker fundamentals, architecture, and real-world use cases
 - **Week 2**: Writing Dockerfiles, layer caching, and production best practices
 - **Week 3**: Docker Compose, multi-container applications, and orchestration
-- **Week 4**: Docker registries and CI/CD integration (coming soon)
+- **Week 4**: Docker registries, image tagging, CI/CD integration, and deployment
 
 ---
 
